@@ -1,15 +1,17 @@
+import argparse
+import json
 import random
 import math
-import pandas as pd
-import pulp
+from pathlib import Path
 
 class Player:
-    def __init__(self, name, rating):
+    def __init__(self, name, rating, phone_number):
         self.name = name
         self.rating = rating
+        self.phone_number = phone_number
         
     def pretty_print(self):
-        print(f"Player: {self.name}, Rating: {self.rating}")
+        print(f"Player: {self.name}, Rating: {self.rating}, Phone: {self.phone_number}")
 
 class Team:
     def __init__(self, players):
@@ -29,7 +31,7 @@ class Team:
     def pretty_print(self):
         print(f"Team!")
         for player in self.players:
-            print(player.name)
+            print(f"{player.name} ({player.phone_number})")
         
 class PlayerPool:
     def __init__(self):
@@ -55,11 +57,63 @@ def print_teams(teams):
     print("-----------")
     
 def load_players(file_path):
-    df = pd.read_csv(file_path)
+    import pandas as pd
+
+    df = pd.read_csv(file_path, dtype=str)
+    columns = {
+        " ".join(str(column).strip().lower().split()): column
+        for column in df.columns
+    }
+    required_columns = ("name", "rating", "phone number")
+    missing_columns = [column for column in required_columns if column not in columns]
+    if missing_columns:
+        expected = ", ".join(required_columns)
+        missing = ", ".join(missing_columns)
+        raise ValueError(f"CSV is missing required column(s): {missing}. Expected: {expected}")
+
     players = PlayerPool()
     for _, row in df.iterrows():
-        players.add(Player(row['Name'], int(row['Rating'])))
+        players.add(
+            Player(
+                row[columns["name"]],
+                int(row[columns["rating"]]),
+                row[columns["phone number"]],
+            )
+        )
     return players
+
+
+def load_constraints(file_path, players):
+    """Load together/apart constraints from a JSON file using player names."""
+    if file_path is None:
+        return [], {}
+
+    with open(file_path, encoding="utf-8") as constraints_file:
+        config = json.load(constraints_file)
+
+    def find_player(name):
+        if not isinstance(name, str):
+            raise ValueError(f"player names must be strings; got {name!r}")
+        player = players.look_up_by_name(name)
+        if player is None:
+            raise ValueError(f"constraint refers to unknown player: {name}")
+        return player
+
+    together_constraints = []
+    for group in config.get("together", []):
+        if not isinstance(group, list) or len(group) < 2:
+            raise ValueError("each 'together' entry must be a list of at least 2 names")
+        together_constraints.append([find_player(name) for name in group])
+
+    apart_constraints = {}
+    for pair in config.get("apart", []):
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ValueError("each 'apart' entry must be a list of exactly 2 names")
+        player_a, player_b = (find_player(name) for name in pair)
+        apart_constraints.setdefault(player_a, []).append(player_b)
+        apart_constraints.setdefault(player_b, []).append(player_a)
+
+    return together_constraints, apart_constraints
 
 # Function to calculate the imbalance (objective function)
 def calculate_imbalance(teams):
@@ -132,7 +186,15 @@ def initialize_teams(players, num_teams, together_constraints):
     return teams
 
 # Simulated Annealing algorithm
-def simulated_annealing(players, num_teams=10, together_constraints=[], apart_constraints={}, initial_temp=1000000, cooling_rate=0.00001, min_temp=0.00001):
+def simulated_annealing(
+    players,
+    num_teams=10,
+    together_constraints=[],
+    apart_constraints={},
+    initial_temp=100,
+    cooling_rate=0.9995,
+    min_temp=0.01,
+):
     # Initialize teams with constraints
     teams = initialize_teams(players, num_teams, together_constraints)
     
@@ -164,7 +226,9 @@ def simulated_annealing(players, num_teams=10, together_constraints=[], apart_co
     
     return best_teams, best_imbalance
     
-def ilp_team_allocation(player_pool, num_teams, together_constraints, apart_constraints):
+def ilp_team_allocation(player_pool, num_teams, together_constraints, apart_constraints, time_limit=300):
+    import pulp
+
     players = player_pool.get_as_list()
     
     # Define the problem
@@ -215,7 +279,7 @@ def ilp_team_allocation(player_pool, num_teams, together_constraints, apart_cons
                 prob += x[player1.name, t] + x[player2.name, t] <= 1
 
     # Solve the problem
-    prob.solve(pulp.PULP_CBC_CMD(timeLimit=300))
+    prob.solve(pulp.PULP_CBC_CMD(timeLimit=time_limit))
     
     # Assign players to teams
     teams = [[] for _ in range(num_teams)]
@@ -227,45 +291,115 @@ def ilp_team_allocation(player_pool, num_teams, together_constraints, apart_cons
 
     return teams
 
-def main():
+def build_parser():
+    parser = argparse.ArgumentParser(
+        description="Build balanced volleyball teams from a player ratings CSV.",
+        epilog=(
+        "CSV format: the first row must include 'Name', 'Rating', and "
+            "'Phone Number'. Example:\n"
+            "  Name,Rating,Phone Number\n"
+            "  Alex,8,555-0100\n"
+            "  Jordan,6,555-0101\n\n"
+            "Together/apart constraints can be supplied with --constraints."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "csv_file",
+        nargs="?",
+        default="players.csv",
+        help="path to the player ratings CSV (default: players.csv)",
+    )
+    parser.add_argument(
+        "-n",
+        "--teams",
+        type=int,
+        default=10,
+        metavar="N",
+        help="number of teams to create (default: 10)",
+    )
+    parser.add_argument(
+        "-a",
+        "--algorithm",
+        choices=("both", "ilp", "annealing"),
+        default="both",
+        help="which allocation method to run (default: both)",
+    )
+    parser.add_argument(
+        "-t",
+        "--time-limit",
+        type=int,
+        default=300,
+        metavar="SECONDS",
+        help="maximum ILP solver time in seconds (default: 300)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="random seed for repeatable simulated-annealing results",
+    )
+    parser.add_argument(
+        "-c",
+        "--constraints",
+        type=Path,
+        metavar="JSON",
+        help="JSON file containing together/apart player constraints",
+    )
+    return parser
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+
+    if args.teams < 1:
+        build_parser().error("--teams must be at least 1")
+    if args.time_limit < 1:
+        build_parser().error("--time-limit must be at least 1 second")
+
+    csv_path = Path(args.csv_file)
+    if not csv_path.is_file():
+        build_parser().error(f"player CSV not found: {csv_path}")
+    if args.constraints is not None and not args.constraints.is_file():
+        build_parser().error(f"constraints file not found: {args.constraints}")
+
+    if args.seed is not None:
+        random.seed(args.seed)
 
     # load player and rating
-    file_path = 'players.csv'
-    players = load_players(file_path)
+    players = load_players(csv_path)
         
-    together_constraints = [
-        # [players.look_up_by_name("name 1"), players.look_up_by_name("name 2")]
-    ]
-    
-    apart_constraints = {
-        # players.look_up_by_name("name 1"): [players.look_up_by_name("name 2")]
-    }
+    try:
+        together_constraints, apart_constraints = load_constraints(args.constraints, players)
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        build_parser().error(f"invalid constraints file: {error}")
 
-    # Run the Simulated Annealing algorithm
-    best_teams, best_imbalance = simulated_annealing(players.get_as_list(), 10, together_constraints, apart_constraints)
+    if args.algorithm in ("both", "annealing"):
+        best_teams, best_imbalance = simulated_annealing(
+            players.get_as_list(), args.teams, together_constraints, apart_constraints
+        )
 
-    # Print the results
-    print("SA Best Teams Configuration:")
-    for i, team in enumerate(best_teams, 1):
-        print(f"Team {i}:")
-        for player in team.players:
-            print(player.name)
-        print(f"Total Rating: {team.current_score()}")
-        print("-" * 20)
-    print(f"Best Imbalance: {best_imbalance}")
-    
-    # Run the ILP team allocation
-    num_teams = 10
-    teams = ilp_team_allocation(players, num_teams, together_constraints, apart_constraints)
-    
-    # Print the teams and their total ratings
-    for i, team in enumerate(teams, 1):
-        print(f"Team {i}:")
-        for player in team:
-            print(player.name)
-        total_rating = sum(player.rating for player in team)
-        print(f"Total Rating: {total_rating}")
-        print("-" * 20)
+        print("SA Best Teams Configuration:")
+        for i, team in enumerate(best_teams, 1):
+            print(f"Team {i}:")
+            for player in team.players:
+                print(f"{player.name} ({player.phone_number})")
+            print(f"Total Rating: {team.current_score()}")
+            print("-" * 20)
+        print(f"Best Imbalance: {best_imbalance}")
+
+    if args.algorithm in ("both", "ilp"):
+        teams = ilp_team_allocation(
+            players, args.teams, together_constraints, apart_constraints, args.time_limit
+        )
+
+        print("ILP Team Configuration:")
+        for i, team in enumerate(teams, 1):
+            print(f"Team {i}:")
+            for player in team:
+                print(f"{player.name} ({player.phone_number})")
+            total_rating = sum(player.rating for player in team)
+            print(f"Total Rating: {total_rating}")
+            print("-" * 20)
 
 if __name__ == "__main__":
     main()
