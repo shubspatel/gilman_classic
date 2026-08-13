@@ -59,12 +59,30 @@ def print_teams(teams):
 def load_players(file_path):
     import pandas as pd
 
-    df = pd.read_csv(file_path, dtype=str)
+    required_columns = ("name", "rating", "phone number")
+
+    # Allow a title or other metadata before the actual CSV header.
+    preview = pd.read_csv(file_path, dtype=str, header=None)
+    header_index = None
+    for index, row in preview.head(10).iterrows():
+        row_columns = {
+            " ".join(str(value).strip().lower().split()) for value in row.dropna()
+        }
+        if set(required_columns).issubset(row_columns):
+            header_index = index
+            break
+
+    if header_index is None:
+        raise ValueError(
+            "could not find a header row containing: "
+            + ", ".join(required_columns)
+        )
+
+    df = pd.read_csv(file_path, dtype=str, skiprows=header_index)
     columns = {
         " ".join(str(column).strip().lower().split()): column
         for column in df.columns
     }
-    required_columns = ("name", "rating", "phone number")
     missing_columns = [column for column in required_columns if column not in columns]
     if missing_columns:
         expected = ", ".join(required_columns)
