@@ -27,10 +27,9 @@ python -m pip install --index-url https://pypi.org/simple -r requirements.txt
 When you return to the project in a new terminal, activate it again with
 `source .venv/bin/activate`.
 
-The player file must contain a header row with `Name`, `Rating`, and `Phone Number` columns. A title line before the header is also allowed:
+The player file must begin with a header row containing `Name`, `Rating`, and `Phone Number` columns:
 
 ```csv
-GilmanClassic2026DigsforDreams_8-12_guests
 Name,Rating,Phone Number
 Alex,8,555-0100
 Jordan,6,555-0101

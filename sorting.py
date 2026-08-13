@@ -60,25 +60,7 @@ def load_players(file_path):
     import pandas as pd
 
     required_columns = ("name", "rating", "phone number")
-
-    # Allow a title or other metadata before the actual CSV header.
-    preview = pd.read_csv(file_path, dtype=str, header=None)
-    header_index = None
-    for index, row in preview.head(10).iterrows():
-        row_columns = {
-            " ".join(str(value).strip().lower().split()) for value in row.dropna()
-        }
-        if set(required_columns).issubset(row_columns):
-            header_index = index
-            break
-
-    if header_index is None:
-        raise ValueError(
-            "could not find a header row containing: "
-            + ", ".join(required_columns)
-        )
-
-    df = pd.read_csv(file_path, dtype=str, skiprows=header_index)
+    df = pd.read_csv(file_path, dtype=str)
     columns = {
         " ".join(str(column).strip().lower().split()): column
         for column in df.columns
@@ -139,6 +121,15 @@ def calculate_imbalance(teams):
     return max(team_scores) - min(team_scores)
 
 # Function to randomly swap players between teams, ensuring constraints are respected
+def has_apart_conflict(players, apart_constraints):
+    player_set = set(players)
+    return any(
+        other in player_set
+        for player in player_set
+        for other in apart_constraints.get(player, [])
+    )
+
+
 def swap_between_teams(teams, together_constraints, apart_constraints):
     team_a, team_b = random.sample(teams, 2)
     player_a = random.choice(list(team_a.players))
@@ -150,8 +141,11 @@ def swap_between_teams(teams, together_constraints, apart_constraints):
     if any(set(c).issubset(team_b.players) for c in together_constraints):
         return
 
-    # Ensure swapping maintains "apart" constraints
-    if team_a.contains_any(apart_constraints.get(player_a, [])) or team_b.contains_any(apart_constraints.get(player_b, [])):
+    # Check the teams after the proposed swap. This both preserves valid
+    # apart constraints and allows an invalid initial assignment to be fixed.
+    candidate_a = (team_a.players - {player_a}) | {player_b}
+    candidate_b = (team_b.players - {player_b}) | {player_a}
+    if has_apart_conflict(candidate_a, apart_constraints) or has_apart_conflict(candidate_b, apart_constraints):
         return
 
     # Swap players between the two teams
@@ -159,47 +153,46 @@ def swap_between_teams(teams, together_constraints, apart_constraints):
     team_b.swap_players(player_a, player_b)
 
 # Function to initialize teams, ensuring initial constraints
-def initialize_teams(players, num_teams, together_constraints):
+def initialize_teams(players, num_teams, together_constraints, apart_constraints):
     random.shuffle(players)
-    teams = []
+    teams = [Team([]) for _ in range(num_teams)]
     assigned = set()
 
-    # Assign together constraints first
+    # Treat together groups as units when creating the initial assignment.
+    groups = []
     for group in together_constraints:
         group_set = set(group)
         if assigned & group_set:
             continue  # Skip if already assigned
-        teams.append(Team(group_set))
+        groups.append(group_set)
         assigned.update(group_set)
-    
-    # Calculate the size for each team
+
     total_players = len(players)
     remaining_players = [p for p in players if p not in assigned]
     team_size = total_players // num_teams
     extra_players = total_players % num_teams
+    target_sizes = [team_size + (i < extra_players) for i in range(num_teams)]
 
-    for i in range(num_teams):
-        # Start with players already in the team from the together_constraints
-        current_team_size = len(teams[i].players) if i < len(teams) else 0
-        target_size = team_size + (1 if extra_players > 0 else 0)
+    def choose_team(player_group):
+        valid_teams = [
+            i for i, team in enumerate(teams)
+            if len(team.players) + len(player_group) <= target_sizes[i]
+            and not has_apart_conflict(team.players | set(player_group), apart_constraints)
+        ]
+        if not valid_teams:
+            valid_teams = [
+                i for i, team in enumerate(teams)
+                if len(team.players) + len(player_group) <= target_sizes[i]
+            ]
+        if not valid_teams:
+            valid_teams = list(range(num_teams))
+        return min(valid_teams, key=lambda i: (len(teams[i].players), teams[i].current_score()))
 
-        while current_team_size < target_size and remaining_players:
-            if i >= len(teams):
-                teams.append(Team([]))  # Create new team if needed
-            teams[i].players.add(remaining_players.pop())
-            current_team_size += 1
+    for group in sorted(groups, key=len, reverse=True):
+        teams[choose_team(group)].players.update(group)
 
-        if extra_players > 0:
-            extra_players -= 1
-
-    # Ensure exactly num_teams are returned
-    if len(teams) > num_teams:
-        # Merge smaller teams if needed
-        while len(teams) > num_teams:
-            smallest_team = min(teams, key=lambda t: len(t.players))
-            second_smallest_team = min([t for t in teams if t != smallest_team], key=lambda t: len(t.players))
-            second_smallest_team.players.update(smallest_team.players)
-            teams.remove(smallest_team)
+    for player in remaining_players:
+        teams[choose_team({player})].players.add(player)
 
     return teams
 
@@ -214,7 +207,7 @@ def simulated_annealing(
     min_temp=0.01,
 ):
     # Initialize teams with constraints
-    teams = initialize_teams(players, num_teams, together_constraints)
+    teams = initialize_teams(players, num_teams, together_constraints, apart_constraints)
     
     current_imbalance = calculate_imbalance(teams)
     best_teams = [Team(set(team.players)) for team in teams]  # Deep copy of teams
@@ -296,8 +289,11 @@ def ilp_team_allocation(player_pool, num_teams, together_constraints, apart_cons
             for t in range(num_teams):
                 prob += x[player1.name, t] + x[player2.name, t] <= 1
 
-    # Solve the problem
-    prob.solve(pulp.PULP_CBC_CMD(timeLimit=time_limit))
+    # Solve the problem quietly; provide a concise progress indication instead
+    # of printing CBC's full model and branch-and-bound log.
+    print(f"Running ILP solver (up to {time_limit} seconds)...", flush=True)
+    prob.solve(pulp.PULP_CBC_CMD(timeLimit=time_limit, msg=False))
+    print(f"ILP solver finished: {pulp.LpStatus[prob.status]}", flush=True)
     
     # Assign players to teams
     teams = [[] for _ in range(num_teams)]
