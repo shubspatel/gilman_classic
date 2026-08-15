@@ -83,3 +83,37 @@ python sorting.py players.csv --constraints constraints.json
 Names must match players in the CSV, but capitalization and extra spaces do
 not matter. Each `apart` pair is treated as mutual, so only one direction is
 needed.
+
+## Tournament schedule
+
+Create a `Team,Division` CSV with five teams in each division. The scheduler
+creates game 1 as cross-division exhibition play, then games 2 through 6 as
+division play. Each team plays each other team in its division once and has
+one bye. If the total number of teams is odd, specify the team that chooses
+the Game 1 exhibition bye and the division-play game where it wants its bye.
+
+```csv
+Team,Division
+A1,North
+A2,North
+A3,North
+A4,North
+A5,North
+B1,South
+B2,South
+B3,South
+B4,South
+B5,South
+```
+
+Generate `schedule.csv` with:
+
+```bash
+python tournament.py teams.csv --output schedule.csv --seed 42
+```
+
+For three divisions, for example:
+
+```bash
+python tournament.py teams.csv --exhibition-bye-team A1 --exhibition-bye-game 6
+```
