@@ -245,7 +245,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> None:
     args = build_parser().parse_args(argv)
     try:
-        schedule = create_schedule(load_tournament_teams(args.csv_file), args.seed)
+        schedule = create_schedule(
+            load_tournament_teams(args.csv_file),
+            seed=args.seed,
+            exhibition_bye_team=args.exhibition_bye_team,
+            exhibition_bye_game=args.exhibition_bye_game,
+        )
         write_schedule(schedule, args.output)
     except (OSError, ValueError) as error:
         build_parser().error(str(error))

@@ -117,3 +117,9 @@ For three divisions, for example:
 ```bash
 python tournament.py teams.csv --exhibition-bye-team A1 --exhibition-bye-game 6
 ```
+
+To print the generated schedule in a readable round-by-round format:
+
+```bash
+python format_schedule.py schedule.csv
+```

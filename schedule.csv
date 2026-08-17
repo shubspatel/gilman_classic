@@ -1,0 +1,54 @@
+Game,Match,Team 1,Team 2,Division,Type
+1,1,Mt. Baker Dough Boys and Girl (Eden),How I Set Your Mother (Jake),,Exhibition
+1,2,Power of Friendship (Anthony),I’m a volley girl (in a volley world) (Hallie),,Exhibition
+1,3,Called to Serve (Alex C),Free Ballers (Emma L),,Exhibition
+1,4,Bump Set Summit (Shannel),Big Dig Energy (Kyle),,Exhibition
+1,5,Hammer Time (Karl),Block Party (Claire),,Exhibition
+1,6,Calm Your Tips (Emma C),Bootylicious (Will),,Exhibition
+1,7,Balls Deep (Delaney),Face Down Pass Up (Kenny),,Exhibition
+1,8,SCAM (Shubs),BYE,Helens,Exhibition Bye
+2,1,Called to Serve (Alex C),Mt. Baker Dough Boys and Girl (Eden),Baker,Division
+2,2,Big Dig Energy (Kyle),Face Down Pass Up (Kenny),Baker,Division
+2,3,Calm Your Tips (Emma C),BYE,Baker,Division
+2,1,Block Party (Claire),I’m a volley girl (in a volley world) (Hallie),Helens,Division
+2,2,SCAM (Shubs),Balls Deep (Delaney),Helens,Division
+2,3,How I Set Your Mother (Jake),BYE,Helens,Division
+2,1,Power of Friendship (Anthony),Bump Set Summit (Shannel),Rainier,Division
+2,2,Hammer Time (Karl),Bootylicious (Will),Rainier,Division
+2,3,Free Ballers (Emma L),BYE,Rainier,Division
+3,1,Big Dig Energy (Kyle),Calm Your Tips (Emma C),Baker,Division
+3,2,Face Down Pass Up (Kenny),Mt. Baker Dough Boys and Girl (Eden),Baker,Division
+3,3,Called to Serve (Alex C),BYE,Baker,Division
+3,1,SCAM (Shubs),How I Set Your Mother (Jake),Helens,Division
+3,2,Balls Deep (Delaney),I’m a volley girl (in a volley world) (Hallie),Helens,Division
+3,3,Block Party (Claire),BYE,Helens,Division
+3,1,Hammer Time (Karl),Free Ballers (Emma L),Rainier,Division
+3,2,Bootylicious (Will),Bump Set Summit (Shannel),Rainier,Division
+3,3,Power of Friendship (Anthony),BYE,Rainier,Division
+4,1,Face Down Pass Up (Kenny),Called to Serve (Alex C),Baker,Division
+4,2,Mt. Baker Dough Boys and Girl (Eden),Calm Your Tips (Emma C),Baker,Division
+4,3,Big Dig Energy (Kyle),BYE,Baker,Division
+4,1,Balls Deep (Delaney),Block Party (Claire),Helens,Division
+4,2,I’m a volley girl (in a volley world) (Hallie),How I Set Your Mother (Jake),Helens,Division
+4,3,SCAM (Shubs),BYE,Helens,Division
+4,1,Bootylicious (Will),Power of Friendship (Anthony),Rainier,Division
+4,2,Bump Set Summit (Shannel),Free Ballers (Emma L),Rainier,Division
+4,3,Hammer Time (Karl),BYE,Rainier,Division
+5,1,Mt. Baker Dough Boys and Girl (Eden),Big Dig Energy (Kyle),Baker,Division
+5,2,Calm Your Tips (Emma C),Called to Serve (Alex C),Baker,Division
+5,3,Face Down Pass Up (Kenny),BYE,Baker,Division
+5,1,I’m a volley girl (in a volley world) (Hallie),SCAM (Shubs),Helens,Division
+5,2,How I Set Your Mother (Jake),Block Party (Claire),Helens,Division
+5,3,Balls Deep (Delaney),BYE,Helens,Division
+5,1,Bump Set Summit (Shannel),Hammer Time (Karl),Rainier,Division
+5,2,Free Ballers (Emma L),Power of Friendship (Anthony),Rainier,Division
+5,3,Bootylicious (Will),BYE,Rainier,Division
+6,1,Calm Your Tips (Emma C),Face Down Pass Up (Kenny),Baker,Division
+6,2,Called to Serve (Alex C),Big Dig Energy (Kyle),Baker,Division
+6,3,Mt. Baker Dough Boys and Girl (Eden),BYE,Baker,Division
+6,1,How I Set Your Mother (Jake),Balls Deep (Delaney),Helens,Division
+6,2,Block Party (Claire),SCAM (Shubs),Helens,Division
+6,3,I’m a volley girl (in a volley world) (Hallie),BYE,Helens,Division
+6,1,Free Ballers (Emma L),Bootylicious (Will),Rainier,Division
+6,2,Power of Friendship (Anthony),Hammer Time (Karl),Rainier,Division
+6,3,Bump Set Summit (Shannel),BYE,Rainier,Division
